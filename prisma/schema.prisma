@@ -1,0 +1,188 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and profiles
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  name              String?
+  password          String
+  image             String?
+  bio               String?
+  skillLevel        String?   @default("beginner") // beginner, intermediate, advanced
+  onboardingComplete Boolean  @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  patterns          Pattern[]
+  projects          Project[]
+  communityPosts    CommunityPost[]
+  comments          Comment[]
+  notifications     Notification[]
+  subscription      Subscription?
+  
+  @@map("users")
+}
+
+// Pattern model for crochet patterns
+model Pattern {
+  id            String    @id @default(uuid())
+  title         String
+  description   String    @db.Text
+  difficulty    String    // beginner, intermediate, advanced
+  category      String    // amigurumi, garments, accessories, home-decor
+  materials     String[]  // array of materials needed
+  hookSize      String?
+  gaugeInfo     String?
+  instructions  String    @db.Text
+  imageUrl      String?
+  isPublic      Boolean   @default(false)
+  isFeatured    Boolean   @default(false)
+  estimatedTime String?   // e.g., "2-3 hours"
+  aiGenerated   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  authorId      String
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  projects      Project[]
+  
+  @@index([authorId])
+  @@index([category])
+  @@index([difficulty])
+  @@map("patterns")
+}
+
+// Project model for user projects
+model Project {
+  id              String    @id @default(uuid())
+  title           String
+  description     String?   @db.Text
+  status          String    @default("not_started") // not_started, in_progress, completed, paused
+  progressPercent Int       @default(0)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  notes           String?   @db.Text
+  imageUrl        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patternId       String?
+  pattern         Pattern?  @relation(fields: [patternId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([status])
+  @@map("projects")
+}
+
+// Tutorial model
+model Tutorial {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  content     String   @db.Text
+  difficulty  String   // beginner, intermediate, advanced
+  category    String   // stitches, techniques, tips-tricks
+  videoUrl    String?
+  imageUrl    String?
+  duration    String?  // e.g., "10 minutes"
+  order       Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+  @@index([difficulty])
+  @@map("tutorials")
+}
+
+// Community feed posts
+model CommunityPost {
+  id        String    @id @default(uuid())
+  title     String
+  content   String    @db.Text
+  imageUrl  String?
+  likes     Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  // Relations
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments  Comment[]
+  
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("community_posts")
+}
+
+// Comments on community posts
+model Comment {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  @@index([authorId])
+  @@index([postId])
+  @@map("comments")
+}
+
+// Notification model (placeholder)
+model Notification {
+  id        String   @id @default(uuid())
+  type      String   // comment, like, project_update, etc.
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}
+
+// Subscription/Pricing model (Stripe integration)
+model Subscription {
+  id                 String   @id @default(uuid())
+  stripeCustomerId   String?  @unique
+  stripeSubscriptionId String? @unique
+  stripePriceId      String?
+  plan               String   @default("free") // free, basic, premium
+  status             String   @default("active") // active, canceled, past_due
+  currentPeriodEnd   DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  // Relations
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("subscriptions")
+}
+
